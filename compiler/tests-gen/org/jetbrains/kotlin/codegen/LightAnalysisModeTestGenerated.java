@@ -11784,6 +11784,29 @@ public class LightAnalysisModeTestGenerated extends AbstractLightAnalysisModeTes
                 runTest("compiler/testData/codegen/box/extensionFunctions/contextReceivers/simpleCall.kt");
             }
         }
+
+        @TestMetadata("compiler/testData/codegen/box/extensionFunctions/receiverExpressions")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class ReceiverExpressions extends AbstractLightAnalysisModeTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInReceiverExpressions() throws Exception {
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/extensionFunctions/receiverExpressions"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM, true);
+            }
+
+            @TestMetadata("anyContext.kt")
+            public void testAnyContext() throws Exception {
+                runTest("compiler/testData/codegen/box/extensionFunctions/receiverExpressions/anyContext.kt");
+            }
+
+            @TestMetadata("simple.kt")
+            public void testSimple() throws Exception {
+                runTest("compiler/testData/codegen/box/extensionFunctions/receiverExpressions/simple.kt");
+            }
+        }
     }
 
     @TestMetadata("compiler/testData/codegen/box/extensionProperties")
