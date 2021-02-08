@@ -489,7 +489,7 @@ fun RecursiveArtifact.jarContentsFromConfiguration(configuration: Configuration)
 
     resolvedArtifacts.filter { it.id.componentIdentifier is ModuleComponentIdentifier }
         .map { it.file }
-        .forEach(::extractedDirectory)
+        .forEach { extractedDirectory(it) }
 
     resolvedArtifacts
         .map { it.id.componentIdentifier }
