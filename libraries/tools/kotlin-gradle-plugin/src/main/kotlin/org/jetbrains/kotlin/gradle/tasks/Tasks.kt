@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
 import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporterImpl
 import org.jetbrains.kotlin.build.report.metrics.BuildTime
 import org.jetbrains.kotlin.build.report.metrics.measure
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.CommonToolArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
@@ -334,6 +335,20 @@ abstract class AbstractKotlinCompile<T : CommonCompilerArguments>() : AbstractKo
 
     @TaskAction
     fun execute(inputs: IncrementalTaskInputs) {
+        CompilerSystemProperties.systemPropertyGetter = {
+            val value = if (it in kotlinDaemonProperties) kotlinDaemonProperties[it] else System.getProperty(it)
+            logger.warn("System property read $it = $value (declared: ${it in kotlinDaemonProperties})")
+            value
+        }
+        CompilerSystemProperties.systemPropertySetter = setter@{ key, value ->
+            val oldValue = kotlinDaemonProperties[key]
+            if (oldValue == value) return@setter oldValue
+            kotlinDaemonProperties[key] = value
+            System.setProperty(key, value)
+            logger.warn("System property set $key = $value (was: $oldValue)")
+            oldValue
+        }
+
         // If task throws exception, but its outputs are changed during execution,
         // then Gradle forces next build to be non-incremental (see Gradle's DefaultTaskArtifactStateRepository#persistNewOutputs)
         // To prevent this, we backup outputs before incremental build and restore when exception is thrown
@@ -424,6 +439,14 @@ abstract class AbstractKotlinCompile<T : CommonCompilerArguments>() : AbstractKo
     protected fun hasFilesInTaskBuildDirectory(): Boolean {
         val taskBuildDir = taskBuildDirectory
         return taskBuildDir.walk().any { it != taskBuildDir && it.isFile }
+    }
+
+    @get:Internal
+    val kotlinDaemonProperties: MutableMap<String, String?> by lazy {
+        if (isGradleVersionAtLeast(6, 5)) {
+            CompilerSystemProperties.values()
+                .associate { it.property to project.providers.systemProperty(it.property).forUseAtConfigurationTime().orNull }.toMutableMap()
+        } else mutableMapOf()
     }
 }
 
