@@ -144,12 +144,8 @@ tasks {
         callGroovy("manifestAttributes", manifest, project)
     }
 
-    named<ValidateTaskProperties>("validateTaskProperties") {
-        failOnWarning = true
-    }
-
     named("install") {
-        dependsOn(named("validateTaskProperties"))
+        dependsOn(named("validatePlugins"))
     }
 
     named<DokkaTask>("dokka") {
@@ -160,7 +156,7 @@ tasks {
 
 projectTest {
     executable = "${rootProject.extra["JDK_18"]!!}/bin/java"
-    dependsOn(tasks.named("validateTaskProperties"))
+    dependsOn(tasks.named("validatePlugins"))
 
     workingDir = rootDir
 }
