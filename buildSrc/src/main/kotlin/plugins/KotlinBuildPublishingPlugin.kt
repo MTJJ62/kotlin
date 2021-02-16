@@ -16,7 +16,6 @@ import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.kotlin.dsl.*
-import org.gradle.plugins.signing.Sign
 import org.gradle.plugins.signing.SigningExtension
 import org.gradle.plugins.signing.SigningPlugin
 import java.util.*
@@ -27,7 +26,19 @@ class KotlinBuildPublishingPlugin @Inject constructor(
 ) : Plugin<Project> {
     override fun apply(target: Project): Unit = with(target) {
         apply<MavenPublishPlugin>()
-        apply<SigningPlugin>()
+
+        val signingRequired = project.providers.gradleProperty("signingRequired").forUseAtConfigurationTime().orNull?.toBoolean()
+            ?: project.providers.gradleProperty("isSonatypeRelease").forUseAtConfigurationTime().orNull?.toBoolean() ?: false
+
+        if (signingRequired) {
+            apply<SigningPlugin>()
+
+            configure<SigningExtension> {
+                setRequired(signingRequired)
+                sign(extensions.getByType<PublishingExtension>().publications[PUBLICATION_NAME])
+                useGpgCmd()
+            }
+        }
 
         val publishedRuntime = configurations.maybeCreate(RUNTIME_CONFIGURATION).apply {
             isCanBeConsumed = false
@@ -103,26 +114,12 @@ class KotlinBuildPublishingPlugin @Inject constructor(
                     name = REPOSITORY_NAME
                     url = file("${project.rootDir}/build/repo").toURI()
                 }
+                mavenLocal() // to workaround configuration cache issues with 'publishToMavenLocal' task
             }
         }
 
-        val signingRequired = provider {
-            project.findProperty("signingRequired")?.toString()?.toBoolean()
-                ?: project.property("isSonatypeRelease") as Boolean
-        }
-
-        configure<SigningExtension> {
-            setRequired(signingRequired)
-            sign(extensions.getByType<PublishingExtension>().publications[PUBLICATION_NAME])
-            useGpgCmd()
-        }
-
-        tasks.withType<Sign>().configureEach {
-            setOnlyIf { signingRequired.get() }
-        }
-
         tasks.register("install") {
-            dependsOn(tasks.named("publishToMavenLocal"))
+            dependsOn(tasks.named("publishAllPublicationsToMavenLocalRepository"))
         }
 
         tasks.named<PublishToMavenRepository>("publish${PUBLICATION_NAME}PublicationTo${REPOSITORY_NAME}Repository")
